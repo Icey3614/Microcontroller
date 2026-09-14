@@ -1,0 +1,89 @@
+C51 COMPILER V9.60.7.0   DS18B20                                                           06/03/2026 16:13:01 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE DS18B20
+OBJECT MODULE PLACED IN .\Objects\ds18b20.obj
+COMPILER INVOKED BY: D:\A_microcontroller\C51\BIN\C51.EXE ds18b20.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\
+                    -Listings\ds18b20.lst) TABS(2) OBJECT(.\Objects\ds18b20.obj)
+
+line level    source
+
+   1          #include "ds18b20.h"
+   2          // 温度传感器模块，将温度数字化后输出
+   3          // 显式声明外部触控芯片片选，用于拉高隔离
+   4          sbit AD_CS_Isolation = P3^5;
+   5          
+   6          u8 ds18B20_convertT(void)
+   7          {
+   8   1          // 隔离保护：强制释放XPT2046对P3.7(DOUT)总线的可能占用 
+   9   1          AD_CS_Isolation = 1; 
+  10   1      /*
+  11   1        实验板面临引脚复用问题：
+  12   1        DS18B20 的单总线和 XPT2046（AD转换芯片）的数据输出引脚都连在单片机的
+  13   1        P3.7 上 。  这行代码的效果： 通过给 AD_CS_Isolation
+  14   1        （也就是 XPT2046 的片选引脚 P3.5）送高电平 1
+  15   1        强行让 XPT2046 芯片进入“休眠/高阻态”
+  16   1        断开它与 P3.7 的连接 。这样就彻底扫清了干扰，
+  17   1        确保接下来的信号只有单片机和 DS18B20 在独占通信。  
+  18   1      */
+  19   1          if (oneWire_init() != 0)
+  20   1              return 0; // 不在线
+  21   1          /*
+  22   1          在跟传感器连接，单片机必须在总线上发一个复位脉冲，
+  23   1          看看这个传感器到底有没有“接好”或者“睡醒” 。
+  24   1          这行代码的效果： 调用 oneWire_init() 。
+  25   1          如果返回 0，说明传感器有应答（在线） ；
+  26   1          如果返回的值不等于 0（说明没有器件搭理单片机），
+  27   1          函数就立刻识相地返回 0，
+  28   1          告诉主控系统“传感器不在线/硬件损坏”，不要再继续往下跑了 。 
+  29   1          */
+  30   1          oneWire_sendByte(SKIP_ROM);
+  31   1          oneWire_sendByte(CONVERT_T);
+  32   1          return 1;  // 在线
+  33   1      }
+  34          
+  35          float ds18B20_read_temperture(void)
+  36          {
+  37   1          u8 TLSB, TMSB;
+  38   1          int temp; 
+  39   1          float temperture = 0.0f; 
+  40   1      
+  41   1          AD_CS_Isolation = 1; // 强制隔离保护触控芯片 
+  42   1      
+  43   1          if (oneWire_init() == 0) // 有器件应答 
+  44   1          {
+  45   2              oneWire_sendByte(SKIP_ROM); 
+  46   2              oneWire_sendByte(READ_REGISTER); 
+  47   2              TLSB = oneWire_receiveByte(); 
+  48   2              TMSB = oneWire_receiveByte(); 
+  49   2              temp = ((int)TMSB << 8) | TLSB;
+  50   2      
+  51   2              // 处理正负温度 
+  52   2              if (TMSB & 0xF8) 
+  53   2              {
+  54   3                  temp = ~temp + 1; 
+C51 COMPILER V9.60.7.0   DS18B20                                                           06/03/2026 16:13:01 PAGE 2   
+
+  55   3                  temperture = -temp / 16.0f;
+  56   3              }
+  57   2              else // [cite: 1172]
+  58   2              {
+  59   3                  temperture = temp / 16.0f;
+  60   3              }
+  61   2          }
+  62   1          return temperture; 
+  63   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    138    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       7
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

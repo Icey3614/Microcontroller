@@ -1,0 +1,105 @@
+C51 COMPILER V9.60.7.0   XPT2046                                                           06/03/2026 16:13:02 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE XPT2046
+OBJECT MODULE PLACED IN .\Objects\xpt2046.obj
+COMPILER INVOKED BY: D:\A_microcontroller\C51\BIN\C51.EXE xpt2046.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\
+                    -Listings\xpt2046.lst) TABS(2) OBJECT(.\Objects\xpt2046.obj)
+
+line level    source
+
+   1          #include "xpt2046.h"
+   2          
+   3          // 显式声明单总线引脚，用于释放总线 
+   4          sbit DQ_Isolation = P3^7;
+   5          /*
+   6          对于温度与亮度模块，
+   7          在进行使用时，会先将对方的对于总线的识别定义为被占用，
+   8          这样就可以确保自身暂时独占总线，同时避免干扰
+   9          */
+  10          
+  11          static void SPI_Write(u8 dat)
+  12          {
+  13   1        /*
+  14   1        这个函数的作用是：
+  15   1        在专门的同步时钟信号（XPT_CLK）引导下 ，
+  16   1        利用移位算法将一个 8 位字节数据按“最高位先发”的顺序 ，
+  17   1        逐位输出到数据线（XPT_DIN）上并锁存进 XPT2046 芯片中 ，
+  18   1        从而实现单片机向亮度芯片发送控制命令的底层操作 。
+  19   1        */
+  20   1          u8 i;
+  21   1          XPT_CLK = 0;
+  22   1          for (i = 0; i < 8; i++)
+  23   1          {
+  24   2              XPT_DIN = dat >> 7; // 放置最高位
+  25   2              dat <<= 1;
+  26   2              XPT_CLK = 0;
+  27   2              XPT_CLK = 1;        // 上升沿锁存
+  28   2          }
+  29   1      }
+  30          
+  31          
+  32          static u16 SPI_Read(void)
+  33          {
+  34   1          u16 i, dat = 0;
+  35   1          XPT_CLK = 0;
+  36   1          for (i = 0; i < 12; i++)
+  37   1          {
+  38   2            /*
+  39   2            由于 XPT2046 是一款 12 位高精度的模数转换芯片（ADC），
+  40   2            它翻译出来的数字范围是二进制的 0000 0000 0000 到 1111 1111 1111
+  41   2            （对应十进制的 0 ~ 4095）。
+  42   2            所以，单片机必须连续敲击 12 次时钟，才能把这 12 个位全部收进来。
+  43   2            */
+  44   2              dat <<= 1;
+  45   2              XPT_CLK = 1;
+  46   2              XPT_CLK = 0; // 下降沿读取 
+  47   2              dat |= XPT_DOUT; 
+  48   2          }
+  49   1          return dat; //
+  50   1      }
+  51          
+  52          u16 Read_AD_Data(u8 cmd)
+  53          {
+  54   1        //调用前面两个函数获取亮度数据，将其返回，同时释放总线
+C51 COMPILER V9.60.7.0   XPT2046                                                           06/03/2026 16:13:02 PAGE 2   
+
+  55   1          u8 i; 
+  56   1          u16 AD_Value; 
+  57   1      
+  58   1          // 隔离保护：先将单总线DQ释放（51单片机准双向口写1即释放总线）
+  59   1          DQ_Isolation = 1;
+  60   1      
+  61   1          XPT_CLK = 0; 
+  62   1          XPT_CS  = 0; 
+  63   1          SPI_Write(cmd);
+  64   1      
+  65   1          for (i = 6; i > 0; i--); // 小幅延时等待转换
+  66   1      
+  67   1          XPT_CLK = 1; // 产生清除BUSY的时钟
+  68   1          _nop_(); _nop_();
+  69   1          XPT_CLK = 0; 
+  70   1          _nop_(); _nop_();
+  71   1      
+  72   1          AD_Value = SPI_Read(); 
+  73   1          XPT_CS = 1;  // 释放片选 
+  74   1      
+  75   1          // 再次显式释放总线防止寄生漏电
+  76   1          DQ_Isolation = 1;
+  77   1      
+  78   1          return AD_Value;
+  79   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     93    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
