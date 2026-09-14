@@ -1,0 +1,137 @@
+C51 COMPILER V9.60.7.0   UART                                                              06/06/2026 16:03:53 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE UART
+OBJECT MODULE PLACED IN .\Objects\uart.obj
+COMPILER INVOKED BY: D:\A_microcontroller\C51\BIN\C51.EXE uart.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Lis
+                    -tings\uart.lst) TABS(2) OBJECT(.\Objects\uart.obj)
+
+line level    source
+
+   1          #include "uart.h"
+   2          #include <string.h>
+   3          
+   4          static u8 idata rx_buffer = 0;       // 接收缓冲
+   5          static bit rx_flag = 0;        // 接收完成标志
+   6          static bit uart_mode = 0;      // 串口模式标志
+   7          
+   8          /*******************************************************************************
+   9          * 函 数 名: UART_Init
+  10          * 函数功能: 初始化串口，9600bps @11.0592MHz
+  11          * 说    明: 使用T1作为波特率发生器，方式2（8位自动重载）
+  12          *******************************************************************************/
+  13          void UART_Init(void)
+  14          {
+  15   1          // 串口方式1（8位UART），T1方式2（8位自动重载）
+  16   1          SCON = 0x50;                     // 方式1, REN=1允许接收
+  17   1          TMOD = (TMOD & 0x0F) | 0x20;    // T1工作在方式2（8位自动重载）
+  18   1          TH1 = 0xFD;                      // 9600bps @11.0592MHz
+  19   1          TL1 = 0xFD;
+  20   1          TR1 = 1;                         // 启动T1
+  21   1          ES = 1;                          // 开串口中断
+  22   1          EA = 1;                          // 开总中断（若已开则无影响）
+  23   1      }
+  24          
+  25          /*******************************************************************************
+  26          * 函 数 名: UART_SendByte
+  27          * 函数功能: 发送一个字节
+  28          *******************************************************************************/
+  29          void UART_SendByte(u8 dat)
+  30          {
+  31   1          SBUF = dat;
+  32   1          while (!TI);                     // 等待发送完成
+  33   1          TI = 0;
+  34   1      }
+  35          
+  36          /*******************************************************************************
+  37          * 函 数 名: UART_SendString
+  38          * 函数功能: 发送字符串
+  39          *******************************************************************************/
+  40          void UART_SendString(u8 *str)
+  41          {
+  42   1          while (*str != '\0')
+  43   1          {
+  44   2              UART_SendByte(*str++);
+  45   2          }
+  46   1      }
+  47          
+  48          /*******************************************************************************
+  49          * 函 数 名: UART_ReceiveByte
+  50          * 函数功能: 接收一个字节（非阻塞）
+  51          * 返 回 值: 接收到的数据，无数据返回0xFF
+  52          *******************************************************************************/
+  53          u8 UART_ReceiveByte(void)
+  54          {
+C51 COMPILER V9.60.7.0   UART                                                              06/06/2026 16:03:53 PAGE 2   
+
+  55   1          u8 dat;
+  56   1          if (rx_flag)
+  57   1          {
+  58   2              dat = rx_buffer;
+  59   2              rx_flag = 0;
+  60   2              return dat;
+  61   2          }
+  62   1          return 0xFF;
+  63   1      }
+  64          
+  65          /*******************************************************************************
+  66          * 函 数 名: UART_ISR
+  67          * 函数功能: 串口中断服务函数
+  68          *******************************************************************************/
+  69          void UART_ISR(void) interrupt 4
+  70          {
+  71   1          if (RI)
+  72   1          {
+  73   2              RI = 0;
+  74   2              rx_buffer = SBUF;
+  75   2              rx_flag = 1;
+  76   2          }
+  77   1      }
+  78          
+  79          /*******************************************************************************
+  80          * 函 数 名: UART_SetMode
+  81          * 函数功能: 设置串口模式开关
+  82          *******************************************************************************/
+  83          void UART_SetMode(bit enter)
+  84          {
+  85   1          uart_mode = enter;
+  86   1          if (enter)
+  87   1          {
+  88   2              UART_Init();                 // 进入时初始化串口
+  89   2          }
+  90   1      }
+  91          
+  92          /*******************************************************************************
+  93          * 函 数 名: UART_Service
+  94          * 函数功能: 串口通信服务函数
+  95          * 返 回 值: 收到的数据（0xFF表示无数据）
+  96          * 说    明: 收到数据后回显（加1返回），同时返回给调用者用于LCD显示
+  97          *******************************************************************************/
+  98          u8 UART_Service(void)
+  99          {
+ 100   1          u8 rx_data;
+ 101   1          if (!uart_mode) return 0xFF;
+ 102   1      
+ 103   1          rx_data = UART_ReceiveByte();
+ 104   1          if (rx_data != 0xFF)
+ 105   1          {
+ 106   2              UART_SendByte(rx_data + 1);  // 回显：收到的数据+1
+ 107   2          }
+ 108   1          return rx_data;
+ 109   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    140    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+C51 COMPILER V9.60.7.0   UART                                                              06/06/2026 16:03:53 PAGE 3   
+
+   DATA SIZE        =   ----       3
+   IDATA SIZE       =      1    ----
+   BIT SIZE         =      2       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
