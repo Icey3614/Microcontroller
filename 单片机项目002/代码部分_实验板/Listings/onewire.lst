@@ -1,0 +1,137 @@
+C51 COMPILER V9.60.7.0   ONEWIRE                                                           06/03/2026 21:01:23 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE ONEWIRE
+OBJECT MODULE PLACED IN .\Objects\onewire.obj
+COMPILER INVOKED BY: D:\A_microcontroller\C51\BIN\C51.EXE onewire.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\
+                    -Listings\onewire.lst) TABS(2) OBJECT(.\Objects\onewire.obj)
+
+line level    source
+
+   1          #include "onewire.h"
+   2          
+   3          /*******************************************************************************
+   4          * 延时函数（@11.0592MHz）
+   5          *******************************************************************************/
+   6          static void delay600us(void)
+   7          {
+   8   1          u8 i, j;
+   9   1          _nop_();
+  10   1          i = 2;
+  11   1          j = 15;
+  12   1          do {
+  13   2              while (--j);
+  14   2          } while (--i);
+  15   1      }
+  16          
+  17          static void delay60us(void)
+  18          {
+  19   1          u8 i;
+  20   1          i = 25;
+  21   1          while (--i);
+  22   1      }
+  23          
+  24          static void delay10us(void)
+  25          {
+  26   1          u8 i;
+  27   1          i = 2;
+  28   1          while (--i);
+  29   1      }
+  30          
+  31          /*******************************************************************************
+  32          * 函 数 名: oneWire_init
+  33          * 函数功能: 单总线初始化
+  34          * 返 回 值: 0-有器件应答, 1-无应答
+  35          *******************************************************************************/
+  36          bit oneWire_init(void)
+  37          {
+  38   1          bit ack;
+  39   1          EA = 0;
+  40   1          oneWire_DQ = 0;          // 拉低总线，发复位脉冲
+  41   1          delay600us();            // 480-960us
+  42   1          oneWire_DQ = 1;          // 释放总线
+  43   1          delay60us();             // 15-60us
+  44   1          ack = oneWire_DQ;        // 读取应答信号
+  45   1          delay600us();
+  46   1          EA = 1;
+  47   1          return ack;
+  48   1      }
+  49          
+  50          /*******************************************************************************
+  51          * 函 数 名: oneWire_sendBit
+  52          * 函数功能: 发送一个位
+  53          *******************************************************************************/
+  54          static void oneWire_sendBit(u8 Bit)
+C51 COMPILER V9.60.7.0   ONEWIRE                                                           06/03/2026 21:01:23 PAGE 2   
+
+  55          {
+  56   1          EA = 0;
+  57   1          oneWire_DQ = 0;          // 拉低起始
+  58   1          oneWire_DQ = Bit;        // 输出数据
+  59   1          delay60us();             // 保持60us
+  60   1          oneWire_DQ = 1;          // 释放总线
+  61   1          EA = 1;
+  62   1      }
+  63          
+  64          /*******************************************************************************
+  65          * 函 数 名: oneWire_receiveBit
+  66          * 函数功能: 接收一个位
+  67          *******************************************************************************/
+  68          static u8 oneWire_receiveBit(void)
+  69          {
+  70   1          u8 Bit;
+  71   1          EA = 0;
+  72   1          oneWire_DQ = 0;          // 拉低起始
+  73   1          oneWire_DQ = 1;
+  74   1          delay10us();             // DS18B20要求15us内采样
+  75   1          Bit = oneWire_DQ;        // 采样数据
+  76   1          delay60us();             // 等待时序结束
+  77   1          EA = 1;
+  78   1          return Bit;
+  79   1      }
+  80          
+  81          /*******************************************************************************
+  82          * 函 数 名: oneWire_sendByte
+  83          * 函数功能: 发送一个字节（低位先发）
+  84          *******************************************************************************/
+  85          void oneWire_sendByte(u8 dat)
+  86          {
+  87   1          u8 i;
+  88   1          for (i = 0; i < 8; i++)
+  89   1          {
+  90   2              oneWire_sendBit(dat & 0x01);
+  91   2              dat >>= 1;
+  92   2          }
+  93   1      }
+  94          
+  95          /*******************************************************************************
+  96          * 函 数 名: oneWire_receiveByte
+  97          * 函数功能: 接收一个字节（低位先收）
+  98          *******************************************************************************/
+  99          u8 oneWire_receiveByte(void)
+ 100          {
+ 101   1          u8 dat = 0, i;
+ 102   1          for (i = 0; i < 8; i++)
+ 103   1          {
+ 104   2              dat >>= 1;
+ 105   2              if (oneWire_receiveBit())
+ 106   2                  dat |= 0x80;
+ 107   2          }
+ 108   1          return dat;
+ 109   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    125    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+C51 COMPILER V9.60.7.0   ONEWIRE                                                           06/03/2026 21:01:23 PAGE 3   
+
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

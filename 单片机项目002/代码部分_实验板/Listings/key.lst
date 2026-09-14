@@ -1,0 +1,101 @@
+C51 COMPILER V9.60.7.0   KEY                                                               06/03/2026 21:01:22 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN .\Objects\key.obj
+COMPILER INVOKED BY: D:\A_microcontroller\C51\BIN\C51.EXE key.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\List
+                    -ings\key.lst) TABS(2) OBJECT(.\Objects\key.obj)
+
+line level    source
+
+   1          #include "key.h"
+   2          
+   3          #define KEY_PRESSED    1
+   4          #define KEY_UNPRESSED  0
+   5          
+   6          #define KEY_TIME_LONG    1000  // 刚好对应1秒判定
+   7          #define KEY_TIME_REPEAT  200
+   8          
+   9          u8 idata key_flag[KEY_COUNT];
+  10          
+  11          u8 key_check(u8 key_n, u8 flag)
+  12          {
+  13   1          if (key_flag[key_n] & flag) {
+  14   2              if (flag != KEY_HOLD) key_flag[key_n] &= ~flag; 
+  15   2              return 1;
+  16   2          }
+  17   1          return 0;
+  18   1      }
+  19          
+  20          static u8 key_getState(u8 KEY_n)
+  21          {
+  22   1          if (KEY_n == KEY_1) return (key_1_pin == 0) ? KEY_PRESSED : KEY_UNPRESSED;
+  23   1          if (KEY_n == KEY_2) return (key_2_pin == 0) ? KEY_PRESSED : KEY_UNPRESSED;
+  24   1          if (KEY_n == KEY_3) return (key_3_pin == 0) ? KEY_PRESSED : KEY_UNPRESSED;
+  25   1          if (KEY_n == KEY_4) return (key_4_pin == 0) ? KEY_PRESSED : KEY_UNPRESSED;
+  26   1          return KEY_UNPRESSED;
+  27   1      }
+  28          
+  29          void key_tick(void)
+  30          {
+  31   1          static u8 idata currState[KEY_COUNT] = {KEY_UNPRESSED};
+  32   1          static u8 idata preState[KEY_COUNT] = {KEY_UNPRESSED};
+  33   1          static u8 idata scan_div = 0;
+  34   1          static u8 idata state[KEY_COUNT] = {0};
+  35   1          static u16 idata time_dec[KEY_COUNT] = {0};
+  36   1          u8 i;
+  37   1      
+  38   1          for (i = 0; i < KEY_COUNT; i++) {
+  39   2              if (time_dec[i] > 0) time_dec[i]--;
+  40   2          }
+  41   1      
+  42   1          scan_div++;
+  43   1          if (scan_div >= 10) // 10ms物理消抖周期
+  44   1          {
+  45   2              scan_div = 0;
+  46   2              for (i = 0; i < KEY_COUNT; i++)
+  47   2              {
+  48   3                  preState[i] = currState[i];
+  49   3                  currState[i] = key_getState(i);
+  50   3      
+  51   3                  if (currState[i] == KEY_PRESSED) key_flag[i] |= KEY_HOLD;
+  52   3                  else key_flag[i] &= ~KEY_HOLD;
+  53   3      
+  54   3                  if (currState[i] == KEY_PRESSED && preState[i] == KEY_UNPRESSED) key_flag[i] |= KEY_DOWN;
+C51 COMPILER V9.60.7.0   KEY                                                               06/03/2026 21:01:22 PAGE 2   
+
+  55   3                  if (currState[i] == KEY_UNPRESSED && preState[i] == KEY_PRESSED) key_flag[i] |= KEY_UP;
+  56   3      
+  57   3                  switch (state[i])
+  58   3                  {
+  59   4                      case 0:
+  60   4                          if (currState[i] == KEY_PRESSED) { time_dec[i] = KEY_TIME_LONG; state[i] = 1; }
+  61   4                          break;
+  62   4                      case 1: // 等待长按时间判定
+  63   4                          if (currState[i] == KEY_UNPRESSED) { key_flag[i] |= KEY_SINGLE; state[i] = 0; }
+  64   4                          else if (time_dec[i] == 0) { key_flag[i] |= KEY_LONG; time_dec[i] = KEY_TIME_REPEAT; s
+             -tate[i] = 2; }
+  65   4                          break;
+  66   4                      case 2: // 长按连发状态
+  67   4                          if (currState[i] == KEY_UNPRESSED) { state[i] = 0; }
+  68   4                          else if (time_dec[i] == 0) { key_flag[i] |= KEY_REPEAT; time_dec[i] = KEY_TIME_REPEAT;
+             - }
+  69   4                          break;
+  70   4                  }
+  71   3              }
+  72   2          }
+  73   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    378    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =     25    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
